@@ -36,7 +36,9 @@ connectDB();
 
 async function saveSubscriber(phone, service) {
   try {
-    await db.collection("subscribers").updateOne(
+let p = String(phone).replace(/\s/g, '');
+if (!p.startsWith('+')) p = '+' + p; 
+await db.collection("subscribers").updateOne(
       { phone },
       { $set: { phone, service, date: new Date() } },
       { upsert: true }
