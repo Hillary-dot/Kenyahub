@@ -39,11 +39,11 @@ async function saveSubscriber(phone, service) {
 let p = String(phone).replace(/\s/g, '');
 if (!p.startsWith('+')) p = '+' + p; 
 await db.collection("subscribers").updateOne(
-      { phone },
-      { $set: { phone, service, date: new Date() } },
+      { phone: p },
+      { $set: { phone: p, service, date: new Date() } },
       { upsert: true }
     );
-    console.log(`✅ Saved: ${phone} → ${service}`);
+    console.log(`✅ Saved: ${p} → ${service}`);
   } catch(e) {
     console.log("❌ Save error:", e.message);
   }
