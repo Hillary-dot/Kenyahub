@@ -36,9 +36,9 @@ connectDB();
 
 async function saveSubscriber(phone, service) {
   try {
-let p = String(phone).replace(/\s/g, '');
-if (!p.startsWith('+')) p = '+' + p; 
-await db.collection("subscribers").updateOne(
+    let p = String(phone).replace(/\s/g, '');
+    if (!p.startsWith('+')) p = '+' + p;
+    await db.collection("subscribers").updateOne(
       { phone: p },
       { $set: { phone: p, service, date: new Date() } },
       { upsert: true }
@@ -51,8 +51,10 @@ await db.collection("subscribers").updateOne(
 
 async function removeSubscriber(phone) {
   try {
-    await db.collection("subscribers").deleteOne({ phone });
-    console.log(`🔴 Removed: ${phone}`);
+    let p = String(phone).replace(/\s/g, '');
+    if (!p.startsWith('+')) p = '+' + p;
+    await db.collection("subscribers").deleteOne({ phone: p });
+    console.log(`🔴 Removed: ${p}`);
   } catch(e) {
     console.log("❌ Remove error:", e.message);
   }
@@ -66,6 +68,7 @@ async function getSubscribers(service) {
   }
 }
 
+// INCOMING SMS HANDLER
 app.post("/sms", async (req, res) => {
   console.log("📩 SMS received:", JSON.stringify(req.body));
   const phone = req.body.from || req.body.phoneNumber || "";
@@ -128,6 +131,7 @@ app.post("/sms", async (req, res) => {
   res.send("OK");
 });
 
+// SUBSCRIPTION NOTIFICATION
 app.post("/subscription", async (req, res) => {
   console.log("🔔 Subscription:", JSON.stringify(req.body));
   const phone = req.body.phoneNumber || req.body.from || "";
@@ -141,20 +145,33 @@ app.post("/subscription", async (req, res) => {
   res.sendStatus(200);
 });
 
+// DELIVERY REPORT
 app.post("/delivery", (req, res) => {
   console.log("📬 Delivery:", req.body.status, req.body.phoneNumber);
   res.sendStatus(200);
 });
 
+// ============================================
+// SEND PREMIUM MT MESSAGES TO SUBSCRIBERS
+// ============================================
+
 app.get("/send/jobs", async (req, res) => {
-  const msg = req.query.msg || "KENYAHUB JOBS: 1.Safaricom-Customer Care Nairobi 2.KCB-Teller Kisumu 3.NGO-Field Officer Mombasa. Apply fast!";
+  const msg = req.query.msg || 
+    "KENYAHUB JOBS: 1.Safaricom-Customer Care Nairobi 2.KCB-Teller Kisumu 3.NGO-Field Officer Mombasa. Apply fast!";
   const subscribers = await getSubscribers("JOBS");
   if (subscribers.length === 0) return res.send("No JOBS subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.send({ to: numbers, from: "40024", message: msg });
-    console.log(`📤 Jobs sent to ${numbers.length} subscribers`);
-    res.send(`✅ Jobs sent to ${numbers.length} subscribers!`);
+    await sms.sendPremium({
+      to: numbers,
+      from: "40024",
+      message: msg,
+      keyword: "JOBS",
+      linkId: "JOBS",
+      retryDurationInHours: 1
+    });
+    console.log(`📤 Premium Jobs sent to ${numbers.length} subscribers`);
+    res.send(`✅ Premium Jobs sent to ${numbers.length} subscribers!`);
   } catch(e) {
     console.log("Send error:", e.message);
     res.send("Error: " + e.message);
@@ -162,38 +179,75 @@ app.get("/send/jobs", async (req, res) => {
 });
 
 app.get("/send/tips", async (req, res) => {
-  const msg = req.query.msg || "KENYAHUB TIPS: 1.Man City vs Arsenal: Over 2.5 2.Liverpool vs Chelsea: Home Win 3.Barcelona vs Real: BTTS. Good luck!";
+  const msg = req.query.msg || 
+    "KENYAHUB TIPS: 1.Man City vs Arsenal: Over 2.5 2.Liverpool vs Chelsea: Home Win 3.Barcelona vs Real: BTTS. Good luck!";
   const subscribers = await getSubscribers("TIPS");
   if (subscribers.length === 0) return res.send("No TIPS subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.send({ to: numbers, from: "40024", message: msg });
-    res.send(`✅ Tips sent to ${numbers.length} subscribers!`);
-  } catch(e) { res.send("Error: " + e.message); }
+    await sms.sendPremium({
+      to: numbers,
+      from: "40024",
+      message: msg,
+      keyword: "TIPS",
+      linkId: "TIPS",
+      retryDurationInHours: 1
+    });
+    console.log(`📤 Premium Tips sent to ${numbers.length} subscribers`);
+    res.send(`✅ Premium Tips sent to ${numbers.length} subscribers!`);
+  } catch(e) {
+    console.log("Send error:", e.message);
+    res.send("Error: " + e.message);
+  }
 });
 
 app.get("/send/abroad", async (req, res) => {
-  const msg = req.query.msg || "KENYAHUB ABROAD: Germany-50 Nurses EUR 2800/mo. UAE-Drivers KES 45000+housing. Apply: kazimajuu.go.ke";
+  const msg = req.query.msg || 
+    "KENYAHUB ABROAD: Germany-50 Nurses EUR 2800/mo. UAE-Drivers KES 45000+housing. Apply: kazimajuu.go.ke";
   const subscribers = await getSubscribers("ABROAD");
   if (subscribers.length === 0) return res.send("No ABROAD subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.send({ to: numbers, from: "40024", message: msg });
-    res.send(`✅ Abroad sent to ${numbers.length} subscribers!`);
-  } catch(e) { res.send("Error: " + e.message); }
+    await sms.sendPremium({
+      to: numbers,
+      from: "40024",
+      message: msg,
+      keyword: "ABROAD",
+      linkId: "ABROAD",
+      retryDurationInHours: 1
+    });
+    console.log(`📤 Premium Abroad sent to ${numbers.length} subscribers`);
+    res.send(`✅ Premium Abroad sent to ${numbers.length} subscribers!`);
+  } catch(e) {
+    console.log("Send error:", e.message);
+    res.send("Error: " + e.message);
+  }
 });
 
 app.get("/send/love", async (req, res) => {
-  const msg = req.query.msg || "KENYAHUB LOVE: A partner who truly loves you will never make you feel you are asking too much by wanting basic respect.";
+  const msg = req.query.msg || 
+    "KENYAHUB LOVE: A partner who truly loves you will never make you feel you are asking too much by wanting basic respect.";
   const subscribers = await getSubscribers("LOVE");
   if (subscribers.length === 0) return res.send("No LOVE subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.send({ to: numbers, from: "40024", message: msg });
-    res.send(`✅ Love sent to ${numbers.length} subscribers!`);
-  } catch(e) { res.send("Error: " + e.message); }
+    await sms.sendPremium({
+      to: numbers,
+      from: "40024",
+      message: msg,
+      keyword: "LOVE",
+      linkId: "LOVE",
+      retryDurationInHours: 1
+    });
+    console.log(`📤 Premium Love sent to ${numbers.length} subscribers`);
+    res.send(`✅ Premium Love sent to ${numbers.length} subscribers!`);
+  } catch(e) {
+    console.log("Send error:", e.message);
+    res.send("Error: " + e.message);
+  }
 });
 
+// VIEW SUBSCRIBERS
 app.get("/subscribers", async (req, res) => {
   const jobs = await getSubscribers("JOBS");
   const tips = await getSubscribers("TIPS");
@@ -210,13 +264,17 @@ app.get("/subscribers", async (req, res) => {
   });
 });
 
+// ADD SUBSCRIBER MANUALLY
 app.get("/add", async (req, res) => {
   const { phone, service } = req.query;
-  if (!phone || !service) return res.send("Usage: /add?phone=+254712092263&service=JOBS");
+  if (!phone || !service) {
+    return res.send("Usage: /add?phone=254712092263&service=JOBS");
+  }
   await saveSubscriber(phone, service.toUpperCase());
-  res.send(`✅ Added ${phone} to ${service.toUpperCase()}!`);
+  res.send(`✅ Added to ${service.toUpperCase()}!`);
 });
 
+// HOME
 app.get("/", (req, res) => {
   res.json({
     status: "KenyaHub SMS Service is LIVE",
