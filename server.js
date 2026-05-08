@@ -69,7 +69,25 @@ async function getSubscribers(service) {
   }
 }
 
-// INCOMING SMS HANDLER
+function logSendResult(result, service) {
+  try {
+    console.log(`\n📤 ${service} SEND RESULT:`);
+    console.log(`Message: ${result.SMSMessageData.Message}`);
+    const recipients = result.SMSMessageData.Recipients;
+    recipients.forEach(r => {
+      console.log(`---`);
+      console.log(`📱 Number: ${r.number}`);
+      console.log(`📊 Status: ${r.status}`);
+      console.log(`🔢 Code: ${r.statusCode}`);
+      console.log(`💰 Cost: ${r.cost}`);
+      console.log(`🆔 ID: ${r.messageId}`);
+    });
+  } catch(e) {
+    console.log("Log error:", e.message);
+  }
+}
+
+// INCOMING SMS
 app.post("/sms", async (req, res) => {
   console.log("📩 SMS received:", JSON.stringify(req.body));
   const phone = req.body.from || req.body.phoneNumber || "";
@@ -125,14 +143,14 @@ app.post("/sms", async (req, res) => {
     try {
       await sms.send({
         to: [phone], from: "40024",
-        message: "Welcome to KenyaHub! Text JOBS for local jobs, TIPS for betting tips, ABROAD for intl jobs, LOVE for relationship advice."
+        message: "Welcome to KenyaHub! Text JOBS for local jobs, TIPS for betting, ABROAD for intl jobs, LOVE for advice."
       });
     } catch(e) { console.log("SMS error:", e.message); }
   }
   res.status(200).send("OK");
 });
 
-// SUBSCRIPTION NOTIFICATION
+// SUBSCRIPTION
 app.post("/subscription", async (req, res) => {
   console.log("🔔 Subscription:", JSON.stringify(req.body));
   const phone = req.body.phoneNumber || req.body.from || "";
@@ -146,37 +164,22 @@ app.post("/subscription", async (req, res) => {
   res.status(200).send("OK");
 });
 
-// DELIVERY REPORT - IMPROVED
+// DELIVERY REPORT
 app.post("/delivery", (req, res) => {
   try {
-    console.log("📬 DELIVERY REPORT RECEIVED!");
-    console.log("Full body:", JSON.stringify(req.body));
-
-    const status = req.body.status ||
-                   req.body.Status ||
-                   "unknown";
-    const phone = req.body.phoneNumber ||
-                  req.body.number ||
-                  req.body.to ||
-                  "unknown";
-    const id = req.body.id ||
-               req.body.messageId ||
-               "unknown";
+    console.log("📬 DELIVERY REPORT!");
+    console.log("Body:", JSON.stringify(req.body));
+    const status = req.body.status || "unknown";
+    const phone = req.body.phoneNumber || req.body.to || "unknown";
     const failureReason = req.body.failureReason || "none";
-
-    console.log(`📬 Phone: ${phone}`);
-    console.log(`📬 Status: ${status}`);
-    console.log(`📬 Message ID: ${id}`);
-    console.log(`📬 Failure Reason: ${failureReason}`);
-
+    console.log(`📬 Phone: ${phone} | Status: ${status} | Reason: ${failureReason}`);
     res.status(200).send("OK");
   } catch(e) {
-    console.log("Delivery error:", e.message);
     res.status(200).send("OK");
   }
 });
 
-// SEND PREMIUM MT JOBS
+// SEND JOBS
 app.get("/send/jobs", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB JOBS: 1.Safaricom-Customer Care Nairobi 2.KCB-Teller Kisumu 3.NGO-Field Officer Mombasa. Apply fast!";
@@ -184,7 +187,7 @@ app.get("/send/jobs", async (req, res) => {
   if (subscribers.length === 0) return res.send("No JOBS subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.sendPremium({
+    const result = await sms.sendPremium({
       to: numbers,
       from: "40024",
       message: msg,
@@ -192,15 +195,15 @@ app.get("/send/jobs", async (req, res) => {
       linkId: "JOBS",
       retryDurationInHours: 1
     });
-    console.log(`📤 Premium Jobs sent to ${numbers.length} subscribers`);
-    res.send(`✅ Premium Jobs sent to ${numbers.length} subscribers!`);
+    logSendResult(result, "JOBS");
+    res.send(`✅ ${result.SMSMessageData.Message}`);
   } catch(e) {
     console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
 
-// SEND PREMIUM MT TIPS
+// SEND TIPS
 app.get("/send/tips", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB TIPS: 1.Man City vs Arsenal: Over 2.5 2.Liverpool vs Chelsea: Home Win 3.Barcelona vs Real: BTTS. Good luck!";
@@ -208,7 +211,7 @@ app.get("/send/tips", async (req, res) => {
   if (subscribers.length === 0) return res.send("No TIPS subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.sendPremium({
+    const result = await sms.sendPremium({
       to: numbers,
       from: "40024",
       message: msg,
@@ -216,15 +219,15 @@ app.get("/send/tips", async (req, res) => {
       linkId: "TIPS",
       retryDurationInHours: 1
     });
-    console.log(`📤 Premium Tips sent to ${numbers.length} subscribers`);
-    res.send(`✅ Premium Tips sent to ${numbers.length} subscribers!`);
+    logSendResult(result, "TIPS");
+    res.send(`✅ ${result.SMSMessageData.Message}`);
   } catch(e) {
     console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
 
-// SEND PREMIUM MT ABROAD
+// SEND ABROAD
 app.get("/send/abroad", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB ABROAD: Germany-50 Nurses EUR 2800/mo. UAE-Drivers KES 45000+housing. Apply: kazimajuu.go.ke";
@@ -232,7 +235,7 @@ app.get("/send/abroad", async (req, res) => {
   if (subscribers.length === 0) return res.send("No ABROAD subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.sendPremium({
+    const result = await sms.sendPremium({
       to: numbers,
       from: "40024",
       message: msg,
@@ -240,15 +243,15 @@ app.get("/send/abroad", async (req, res) => {
       linkId: "ABROAD",
       retryDurationInHours: 1
     });
-    console.log(`📤 Premium Abroad sent to ${numbers.length} subscribers`);
-    res.send(`✅ Premium Abroad sent to ${numbers.length} subscribers!`);
+    logSendResult(result, "ABROAD");
+    res.send(`✅ ${result.SMSMessageData.Message}`);
   } catch(e) {
     console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
 
-// SEND PREMIUM MT LOVE
+// SEND LOVE
 app.get("/send/love", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB LOVE: A partner who truly loves you will never make you feel you are asking too much by wanting basic respect.";
@@ -256,7 +259,7 @@ app.get("/send/love", async (req, res) => {
   if (subscribers.length === 0) return res.send("No LOVE subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    await sms.sendPremium({
+    const result = await sms.sendPremium({
       to: numbers,
       from: "40024",
       message: msg,
@@ -264,15 +267,15 @@ app.get("/send/love", async (req, res) => {
       linkId: "LOVE",
       retryDurationInHours: 1
     });
-    console.log(`📤 Premium Love sent to ${numbers.length} subscribers`);
-    res.send(`✅ Premium Love sent to ${numbers.length} subscribers!`);
+    logSendResult(result, "LOVE");
+    res.send(`✅ ${result.SMSMessageData.Message}`);
   } catch(e) {
     console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
 
-// VIEW SUBSCRIBERS
+// SUBSCRIBERS
 app.get("/subscribers", async (req, res) => {
   const jobs = await getSubscribers("JOBS");
   const tips = await getSubscribers("TIPS");
@@ -289,12 +292,10 @@ app.get("/subscribers", async (req, res) => {
   });
 });
 
-// ADD SUBSCRIBER MANUALLY
+// ADD MANUALLY
 app.get("/add", async (req, res) => {
   const { phone, service } = req.query;
-  if (!phone || !service) {
-    return res.send("Usage: /add?phone=254712092263&service=JOBS");
-  }
+  if (!phone || !service) return res.send("Usage: /add?phone=254712092263&service=JOBS");
   await saveSubscriber(phone, service.toUpperCase());
   res.send(`✅ Added to ${service.toUpperCase()}!`);
 });
