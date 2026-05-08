@@ -12,8 +12,9 @@ const app = express();
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
@@ -128,7 +129,7 @@ app.post("/sms", async (req, res) => {
       });
     } catch(e) { console.log("SMS error:", e.message); }
   }
-  res.send("OK");
+  res.status(200).send("OK");
 });
 
 // SUBSCRIPTION NOTIFICATION
@@ -142,21 +143,42 @@ app.post("/subscription", async (req, res) => {
   } else if (updateType === "deletion") {
     await removeSubscriber(phone);
   }
-  res.sendStatus(200);
+  res.status(200).send("OK");
 });
 
-// DELIVERY REPORT
+// DELIVERY REPORT - IMPROVED
 app.post("/delivery", (req, res) => {
-  console.log("📬 Delivery:", req.body.status, req.body.phoneNumber);
-  res.sendStatus(200);
+  try {
+    console.log("📬 DELIVERY REPORT RECEIVED!");
+    console.log("Full body:", JSON.stringify(req.body));
+
+    const status = req.body.status ||
+                   req.body.Status ||
+                   "unknown";
+    const phone = req.body.phoneNumber ||
+                  req.body.number ||
+                  req.body.to ||
+                  "unknown";
+    const id = req.body.id ||
+               req.body.messageId ||
+               "unknown";
+    const failureReason = req.body.failureReason || "none";
+
+    console.log(`📬 Phone: ${phone}`);
+    console.log(`📬 Status: ${status}`);
+    console.log(`📬 Message ID: ${id}`);
+    console.log(`📬 Failure Reason: ${failureReason}`);
+
+    res.status(200).send("OK");
+  } catch(e) {
+    console.log("Delivery error:", e.message);
+    res.status(200).send("OK");
+  }
 });
 
-// ============================================
-// SEND PREMIUM MT MESSAGES TO SUBSCRIBERS
-// ============================================
-
+// SEND PREMIUM MT JOBS
 app.get("/send/jobs", async (req, res) => {
-  const msg = req.query.msg || 
+  const msg = req.query.msg ||
     "KENYAHUB JOBS: 1.Safaricom-Customer Care Nairobi 2.KCB-Teller Kisumu 3.NGO-Field Officer Mombasa. Apply fast!";
   const subscribers = await getSubscribers("JOBS");
   if (subscribers.length === 0) return res.send("No JOBS subscribers yet!");
@@ -178,8 +200,9 @@ app.get("/send/jobs", async (req, res) => {
   }
 });
 
+// SEND PREMIUM MT TIPS
 app.get("/send/tips", async (req, res) => {
-  const msg = req.query.msg || 
+  const msg = req.query.msg ||
     "KENYAHUB TIPS: 1.Man City vs Arsenal: Over 2.5 2.Liverpool vs Chelsea: Home Win 3.Barcelona vs Real: BTTS. Good luck!";
   const subscribers = await getSubscribers("TIPS");
   if (subscribers.length === 0) return res.send("No TIPS subscribers yet!");
@@ -201,8 +224,9 @@ app.get("/send/tips", async (req, res) => {
   }
 });
 
+// SEND PREMIUM MT ABROAD
 app.get("/send/abroad", async (req, res) => {
-  const msg = req.query.msg || 
+  const msg = req.query.msg ||
     "KENYAHUB ABROAD: Germany-50 Nurses EUR 2800/mo. UAE-Drivers KES 45000+housing. Apply: kazimajuu.go.ke";
   const subscribers = await getSubscribers("ABROAD");
   if (subscribers.length === 0) return res.send("No ABROAD subscribers yet!");
@@ -224,8 +248,9 @@ app.get("/send/abroad", async (req, res) => {
   }
 });
 
+// SEND PREMIUM MT LOVE
 app.get("/send/love", async (req, res) => {
-  const msg = req.query.msg || 
+  const msg = req.query.msg ||
     "KENYAHUB LOVE: A partner who truly loves you will never make you feel you are asking too much by wanting basic respect.";
   const subscribers = await getSubscribers("LOVE");
   if (subscribers.length === 0) return res.send("No LOVE subscribers yet!");
