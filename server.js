@@ -69,21 +69,52 @@ async function getSubscribers(service) {
   }
 }
 
-function logSendResult(result, service) {
+// CORRECT PREMIUM SMS FUNCTION
+// Uses content.africastalking.com endpoint
+async function sendPremiumSMS(numbers, message, keyword) {
   try {
-    console.log(`\n📤 ${service} SEND RESULT:`);
-    console.log(`Message: ${result.SMSMessageData.Message}`);
-    const recipients = result.SMSMessageData.Recipients;
-    recipients.forEach(r => {
-      console.log(`---`);
-      console.log(`📱 Number: ${r.number}`);
-      console.log(`📊 Status: ${r.status}`);
-      console.log(`🔢 Code: ${r.statusCode}`);
-      console.log(`💰 Cost: ${r.cost}`);
-      console.log(`🆔 ID: ${r.messageId}`);
-    });
+    console.log(`🚀 Sending Premium SMS to ${numbers.length} numbers...`);
+    console.log(`📱 Numbers: ${numbers.join(", ")}`);
+
+    const response = await fetch(
+      "https://content.africastalking.com/version1/messaging",
+      {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "apiKey": process.env.AT_API_KEY
+        },
+        body: new URLSearchParams({
+          username: process.env.AT_USERNAME,
+          to: numbers.join(","),
+          message: message,
+          from: "40024",
+          keyword: keyword,
+          retryDurationInHours: "1"
+        }).toString()
+      }
+    );
+
+    const data = await response.json();
+    console.log(`📤 RAW RESPONSE:`, JSON.stringify(data));
+
+    if (data.SMSMessageData) {
+      const recipients = data.SMSMessageData.Recipients || [];
+      recipients.forEach(r => {
+        console.log(`---`);
+        console.log(`📱 Number: ${r.number}`);
+        console.log(`📊 Status: ${r.status}`);
+        console.log(`🔢 Code: ${r.statusCode}`);
+        console.log(`💰 Cost: ${r.cost}`);
+        console.log(`🆔 ID: ${r.messageId}`);
+      });
+      return data.SMSMessageData.Message;
+    }
+    return JSON.stringify(data);
   } catch(e) {
-    console.log("Log error:", e.message);
+    console.log("❌ Premium SMS error:", e.message);
+    throw e;
   }
 }
 
@@ -187,18 +218,9 @@ app.get("/send/jobs", async (req, res) => {
   if (subscribers.length === 0) return res.send("No JOBS subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    const result = await sms.sendPremium({
-      to: numbers,
-      from: "40024",
-      message: msg,
-      keyword: "JOBS",
-      linkId: "JOBS",
-      retryDurationInHours: 1
-    });
-    logSendResult(result, "JOBS");
-    res.send(`✅ ${result.SMSMessageData.Message}`);
+    const result = await sendPremiumSMS(numbers, msg, "JOBS");
+    res.send(`✅ ${result}`);
   } catch(e) {
-    console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
@@ -211,18 +233,9 @@ app.get("/send/tips", async (req, res) => {
   if (subscribers.length === 0) return res.send("No TIPS subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    const result = await sms.sendPremium({
-      to: numbers,
-      from: "40024",
-      message: msg,
-      keyword: "TIPS",
-      linkId: "TIPS",
-      retryDurationInHours: 1
-    });
-    logSendResult(result, "TIPS");
-    res.send(`✅ ${result.SMSMessageData.Message}`);
+    const result = await sendPremiumSMS(numbers, msg, "TIPS");
+    res.send(`✅ ${result}`);
   } catch(e) {
-    console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
@@ -235,18 +248,9 @@ app.get("/send/abroad", async (req, res) => {
   if (subscribers.length === 0) return res.send("No ABROAD subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    const result = await sms.sendPremium({
-      to: numbers,
-      from: "40024",
-      message: msg,
-      keyword: "ABROAD",
-      linkId: "ABROAD",
-      retryDurationInHours: 1
-    });
-    logSendResult(result, "ABROAD");
-    res.send(`✅ ${result.SMSMessageData.Message}`);
+    const result = await sendPremiumSMS(numbers, msg, "ABROAD");
+    res.send(`✅ ${result}`);
   } catch(e) {
-    console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
@@ -259,18 +263,9 @@ app.get("/send/love", async (req, res) => {
   if (subscribers.length === 0) return res.send("No LOVE subscribers yet!");
   const numbers = subscribers.map(s => s.phone).filter(Boolean);
   try {
-    const result = await sms.sendPremium({
-      to: numbers,
-      from: "40024",
-      message: msg,
-      keyword: "LOVE",
-      linkId: "LOVE",
-      retryDurationInHours: 1
-    });
-    logSendResult(result, "LOVE");
-    res.send(`✅ ${result.SMSMessageData.Message}`);
+    const result = await sendPremiumSMS(numbers, msg, "LOVE");
+    res.send(`✅ ${result}`);
   } catch(e) {
-    console.log("Send error:", e.message);
     res.send("Error: " + e.message);
   }
 });
