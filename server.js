@@ -83,15 +83,16 @@ async function sendPremiumSMS(numbers, message, keyword) {
         headers: {
           "Accept": "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
-          "apiKey": process.env.AT_API_KEY
+          "apikey": process.env.AT_API_KEY
         },
         body: new URLSearchParams({
           username: process.env.AT_USERNAME,
           to: numbers.join(","),
-          message: message,
           from: "40024",
           keyword: keyword,
-          retryDurationInHours: "1"
+          message: message,
+          bulkSMSMode: "0",
+          enqueue: "0"
         }).toString()
       }
     );
@@ -117,7 +118,6 @@ async function sendPremiumSMS(numbers, message, keyword) {
     throw e;
   }
 }
-
 // INCOMING SMS
 app.post("/sms", async (req, res) => {
   console.log("📩 SMS received:", JSON.stringify(req.body));
