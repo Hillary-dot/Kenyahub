@@ -2,12 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const { MongoClient } = require("mongodb");
 
-const Africastalking = require("africastalking")({
-  apiKey: process.env.AT_API_KEY,
-  username: process.env.AT_USERNAME
-});
-
-const sms = Africastalking.SMS;
 const app = express();
 
 app.use((req, res, next) => {
@@ -69,46 +63,43 @@ async function getSubscribers(service) {
   }
 }
 
-// CORRECT PREMIUM SMS FUNCTION
-// Uses content.africastalking.com endpoint
+// ── PREMIUM SMS ─────────────────────────────────────────────────────────────
 async function sendPremiumSMS(numbers, message, keyword) {
   try {
-    console.log(`🚀 Sending Premium SMS to ${numbers.length} numbers...`);
+    console.log(`🚀 Sending Premium SMS to ${numbers.length} number(s)...`);
     console.log(`📱 Numbers: ${numbers.join(", ")}`);
+
+    const body = new URLSearchParams({
+      username: process.env.AT_USERNAME,
+      to:       numbers.join(","),
+      from:     "40024",
+      keyword:  keyword,
+      message:  message,
+      enqueue:  "0"
+    });
+
+    console.log(`📦 BODY SENT: ${body.toString()}`);
 
     const response = await fetch(
       "https://content.africastalking.com/version1/messaging",
       {
         method: "POST",
         headers: {
-          "Accept": "application/json",
+          "Accept":       "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
-          "apikey": process.env.AT_API_KEY
+          "apiKey":       process.env.AT_API_KEY
         },
-        body: new URLSearchParams({
-          username: process.env.AT_USERNAME,
-          to: numbers.join(","),
-          from: "40024",
-          keyword: keyword,
-          message: message,
-          bulkSMSMode: "0",
-          enqueue: "0"
-        }).toString()
+        body: body.toString()
       }
     );
 
     const data = await response.json();
-    console.log(`📤 RAW RESPONSE:`, JSON.stringify(data));
+    console.log(`📤 RAW RESPONSE: ${JSON.stringify(data)}`);
 
     if (data.SMSMessageData) {
       const recipients = data.SMSMessageData.Recipients || [];
       recipients.forEach(r => {
-        console.log(`---`);
-        console.log(`📱 Number: ${r.number}`);
-        console.log(`📊 Status: ${r.status}`);
-        console.log(`🔢 Code: ${r.statusCode}`);
-        console.log(`💰 Cost: ${r.cost}`);
-        console.log(`🆔 ID: ${r.messageId}`);
+        console.log(`📱 ${r.number} | ${r.status} | code: ${r.statusCode} | ${r.cost}`);
       });
       return data.SMSMessageData.Message;
     }
@@ -118,74 +109,77 @@ async function sendPremiumSMS(numbers, message, keyword) {
     throw e;
   }
 }
-// INCOMING SMS
+
+// ── WELCOME / REPLY SMS (also via Premium endpoint) ──────────────────────────
+async function sendReply(phone, message) {
+  try {
+    const body = new URLSearchParams({
+      username: process.env.AT_USERNAME,
+      to:       phone,
+      from:     "40024",
+      message:  message,
+      enqueue:  "0"
+    });
+
+    const response = await fetch(
+      "https://content.africastalking.com/version1/messaging",
+      {
+        method: "POST",
+        headers: {
+          "Accept":       "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "apiKey":       process.env.AT_API_KEY
+        },
+        body: body.toString()
+      }
+    );
+
+    const data = await response.json();
+    console.log(`📤 Reply response: ${JSON.stringify(data)}`);
+  } catch(e) {
+    console.log("❌ Reply SMS error:", e.message);
+  }
+}
+
+// ── INCOMING SMS ─────────────────────────────────────────────────────────────
 app.post("/sms", async (req, res) => {
   console.log("📩 SMS received:", JSON.stringify(req.body));
-  const phone = req.body.from || req.body.phoneNumber || "";
+  const phone   = req.body.from || req.body.phoneNumber || "";
   const message = (req.body.text || req.body.keyword || "").toUpperCase().trim();
   console.log(`From: ${phone} | Message: ${message}`);
 
   if (message === "JOBS") {
     await saveSubscriber(phone, "JOBS");
-    try {
-      await sms.send({
-        to: [phone], from: "40024",
-        message: "Welcome to KenyaHub Jobs! You will receive 5 job alerts daily. Cost: KSH 10/msg. Text STOP to unsubscribe."
-      });
-    } catch(e) { console.log("SMS error:", e.message); }
+    await sendReply(phone, "Welcome to KenyaHub Jobs! You will receive 5 job alerts daily. Cost: KSH 10/msg. Text STOP to unsubscribe.");
   }
   else if (message === "TIPS") {
     await saveSubscriber(phone, "TIPS");
-    try {
-      await sms.send({
-        to: [phone], from: "40024",
-        message: "Welcome to KenyaHub Tips! 3 match predictions daily. Cost: KSH 10/msg. Text STOP to unsubscribe."
-      });
-    } catch(e) { console.log("SMS error:", e.message); }
+    await sendReply(phone, "Welcome to KenyaHub Tips! 3 match predictions daily. Cost: KSH 10/msg. Text STOP to unsubscribe.");
   }
   else if (message === "ABROAD") {
     await saveSubscriber(phone, "ABROAD");
-    try {
-      await sms.send({
-        to: [phone], from: "40024",
-        message: "Welcome to KenyaHub Abroad! International job alerts daily. Cost: KSH 10/msg. Text STOP to unsubscribe."
-      });
-    } catch(e) { console.log("SMS error:", e.message); }
+    await sendReply(phone, "Welcome to KenyaHub Abroad! International job alerts daily. Cost: KSH 10/msg. Text STOP to unsubscribe.");
   }
   else if (message === "LOVE") {
     await saveSubscriber(phone, "LOVE");
-    try {
-      await sms.send({
-        to: [phone], from: "40024",
-        message: "Welcome to KenyaHub Love! Daily relationship wisdom. Cost: KSH 10/msg. Text STOP to unsubscribe."
-      });
-    } catch(e) { console.log("SMS error:", e.message); }
+    await sendReply(phone, "Welcome to KenyaHub Love! Daily relationship wisdom. Cost: KSH 10/msg. Text STOP to unsubscribe.");
   }
   else if (message === "STOP") {
     await removeSubscriber(phone);
-    try {
-      await sms.send({
-        to: [phone], from: "40024",
-        message: "You have been unsubscribed from KenyaHub. Text JOBS, TIPS, ABROAD or LOVE to rejoin anytime."
-      });
-    } catch(e) { console.log("SMS error:", e.message); }
+    await sendReply(phone, "You have been unsubscribed from KenyaHub. Text JOBS, TIPS, ABROAD or LOVE to rejoin anytime.");
   }
   else {
-    try {
-      await sms.send({
-        to: [phone], from: "40024",
-        message: "Welcome to KenyaHub! Text JOBS for local jobs, TIPS for betting, ABROAD for intl jobs, LOVE for advice."
-      });
-    } catch(e) { console.log("SMS error:", e.message); }
+    await sendReply(phone, "Welcome to KenyaHub! Text JOBS for local jobs, TIPS for betting tips, ABROAD for intl jobs, LOVE for daily advice.");
   }
+
   res.status(200).send("OK");
 });
 
-// SUBSCRIPTION
+// ── SUBSCRIPTION CALLBACK ────────────────────────────────────────────────────
 app.post("/subscription", async (req, res) => {
-  console.log("🔔 Subscription:", JSON.stringify(req.body));
-  const phone = req.body.phoneNumber || req.body.from || "";
-  const keyword = (req.body.keyword || "").toUpperCase().trim();
+  console.log("🔔 Subscription event:", JSON.stringify(req.body));
+  const phone      = req.body.phoneNumber || req.body.from || "";
+  const keyword    = (req.body.keyword || "").toUpperCase().trim();
   const updateType = req.body.updateType || "addition";
   if (updateType === "addition" && keyword) {
     await saveSubscriber(phone, keyword);
@@ -195,22 +189,17 @@ app.post("/subscription", async (req, res) => {
   res.status(200).send("OK");
 });
 
-// DELIVERY REPORT
+// ── DELIVERY REPORT ──────────────────────────────────────────────────────────
 app.post("/delivery", (req, res) => {
-  try {
-    console.log("📬 DELIVERY REPORT!");
-    console.log("Body:", JSON.stringify(req.body));
-    const status = req.body.status || "unknown";
-    const phone = req.body.phoneNumber || req.body.to || "unknown";
-    const failureReason = req.body.failureReason || "none";
-    console.log(`📬 Phone: ${phone} | Status: ${status} | Reason: ${failureReason}`);
-    res.status(200).send("OK");
-  } catch(e) {
-    res.status(200).send("OK");
-  }
+  console.log("📬 Delivery report:", JSON.stringify(req.body));
+  const phone         = req.body.phoneNumber || req.body.to || "unknown";
+  const status        = req.body.status || "unknown";
+  const failureReason = req.body.failureReason || "none";
+  console.log(`📬 ${phone} | ${status} | reason: ${failureReason}`);
+  res.status(200).send("OK");
 });
 
-// SEND JOBS
+// ── SEND ROUTES ──────────────────────────────────────────────────────────────
 app.get("/send/jobs", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB JOBS: 1.Safaricom-Customer Care Nairobi 2.KCB-Teller Kisumu 3.NGO-Field Officer Mombasa. Apply fast!";
@@ -221,11 +210,10 @@ app.get("/send/jobs", async (req, res) => {
     const result = await sendPremiumSMS(numbers, msg, "JOBS");
     res.send(`✅ ${result}`);
   } catch(e) {
-    res.send("Error: " + e.message);
+    res.send("❌ Error: " + e.message);
   }
 });
 
-// SEND TIPS
 app.get("/send/tips", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB TIPS: 1.Man City vs Arsenal: Over 2.5 2.Liverpool vs Chelsea: Home Win 3.Barcelona vs Real: BTTS. Good luck!";
@@ -236,11 +224,10 @@ app.get("/send/tips", async (req, res) => {
     const result = await sendPremiumSMS(numbers, msg, "TIPS");
     res.send(`✅ ${result}`);
   } catch(e) {
-    res.send("Error: " + e.message);
+    res.send("❌ Error: " + e.message);
   }
 });
 
-// SEND ABROAD
 app.get("/send/abroad", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB ABROAD: Germany-50 Nurses EUR 2800/mo. UAE-Drivers KES 45000+housing. Apply: kazimajuu.go.ke";
@@ -251,11 +238,10 @@ app.get("/send/abroad", async (req, res) => {
     const result = await sendPremiumSMS(numbers, msg, "ABROAD");
     res.send(`✅ ${result}`);
   } catch(e) {
-    res.send("Error: " + e.message);
+    res.send("❌ Error: " + e.message);
   }
 });
 
-// SEND LOVE
 app.get("/send/love", async (req, res) => {
   const msg = req.query.msg ||
     "KENYAHUB LOVE: A partner who truly loves you will never make you feel you are asking too much by wanting basic respect.";
@@ -266,41 +252,41 @@ app.get("/send/love", async (req, res) => {
     const result = await sendPremiumSMS(numbers, msg, "LOVE");
     res.send(`✅ ${result}`);
   } catch(e) {
-    res.send("Error: " + e.message);
+    res.send("❌ Error: " + e.message);
   }
 });
 
-// SUBSCRIBERS
+// ── SUBSCRIBERS COUNT ────────────────────────────────────────────────────────
 app.get("/subscribers", async (req, res) => {
-  const jobs = await getSubscribers("JOBS");
-  const tips = await getSubscribers("TIPS");
+  const jobs   = await getSubscribers("JOBS");
+  const tips   = await getSubscribers("TIPS");
   const abroad = await getSubscribers("ABROAD");
-  const love = await getSubscribers("LOVE");
+  const love   = await getSubscribers("LOVE");
   res.json({
     status: "KenyaHub SMS Service is LIVE",
-    total: jobs.length + tips.length + abroad.length + love.length,
-    JOBS: jobs.length,
-    TIPS: tips.length,
+    total:  jobs.length + tips.length + abroad.length + love.length,
+    JOBS:   jobs.length,
+    TIPS:   tips.length,
     ABROAD: abroad.length,
-    LOVE: love.length,
-    time: new Date().toISOString()
+    LOVE:   love.length,
+    time:   new Date().toISOString()
   });
 });
 
-// ADD MANUALLY
+// ── ADD SUBSCRIBER MANUALLY ──────────────────────────────────────────────────
 app.get("/add", async (req, res) => {
   const { phone, service } = req.query;
   if (!phone || !service) return res.send("Usage: /add?phone=254712092263&service=JOBS");
   await saveSubscriber(phone, service.toUpperCase());
-  res.send(`✅ Added to ${service.toUpperCase()}!`);
+  res.send(`✅ Added ${phone} to ${service.toUpperCase()}!`);
 });
 
-// HOME
+// ── HOME ─────────────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.json({
-    status: "KenyaHub SMS Service is LIVE",
+    status:   "KenyaHub SMS Service is LIVE",
     services: ["JOBS", "TIPS", "ABROAD", "LOVE"],
-    time: new Date().toISOString()
+    time:     new Date().toISOString()
   });
 });
 
