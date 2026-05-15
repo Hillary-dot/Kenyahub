@@ -70,12 +70,13 @@ async function sendPremiumSMS(numbers, message, keyword) {
     console.log(`📱 Numbers: ${numbers.join(", ")}`);
 
     const body = new URLSearchParams({
-      username: process.env.AT_USERNAME,
-      to:       numbers.join(","),
-      from:     "40024",
-      keyword:  keyword,
-      message:  message,
-      enqueue:  "0"
+      username:    process.env.AT_USERNAME,
+      to:          numbers.join(","),
+      from:        "40024",
+      keyword:     keyword,
+      message:     message,
+      bulkSMSMode: "0",
+      enqueue:     "0"
     });
 
     console.log(`📦 BODY SENT: ${body.toString()}`);
@@ -110,7 +111,7 @@ async function sendPremiumSMS(numbers, message, keyword) {
   }
 }
 
-// ── WELCOME / REPLY SMS (also via Premium endpoint) ──────────────────────────
+// ── WELCOME / REPLY SMS ──────────────────────────────────────────────────────
 async function sendReply(phone, message) {
   try {
     const body = new URLSearchParams({
